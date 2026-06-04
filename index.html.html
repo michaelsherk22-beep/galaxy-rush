@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galaxy Rush — Pixel Platformer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --color-bg: #0a0a1a;
+    --color-surface: rgba(255,255,255,0.05);
+    --color-border: rgba(255,255,255,0.12);
+    --color-text: #e8e8ff;
+    --color-primary: #00ffcc;
+    --color-danger: #ff4466;
+    --color-gold: #ffd700;
+    --color-purple: #cc66ff;
+    --font-display: 'Press Start 2P', monospace;
+    --font-body: 'Orbitron', sans-serif;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --transition: 200ms cubic-bezier(0.16,1,0.3,1);
+  }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    overflow: hidden;
+    user-select: none;
+  }
+  #gameCanvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  /* ---- SCREENS ---- */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+  }
+  .screen.hidden { display: none; }
+  /* ---- TITLE SCREEN ---- */
+  #titleScreen {
+    background: radial-gradient(ellipse at 50% 40%, #1a0a3a 0%, #0a0a1a 70%);
+  }
+  .title-logo {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 4vw, 2.8rem);
+    color: var(--color-primary);
+    text-shadow: 0 0 20px #00ffcc88, 0 0 40px #00ffcc44;
+    letter-spacing: 4px;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .title-sub {
+    font-family: var(--font-display);
+    font-size: clamp(0.4rem, 1.5vw, 0.7rem);
+    color: #cc66ff;
+    letter-spacing: 6px;
+    text-align: center;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+  }
+  .pixel-art-hero {
+    width: 160px; height: 80px;
+    margin: 0 auto 32px;
+    position: relative;
+  }
+  .menu-btn {
+    font-family: var(--font-display);
+    font-size: clamp(0.45rem, 1.3vw, 0.65rem);
+    color: var(--color-bg);
+    background: var(--color-primary);
+    border: none;
+    padding: 14px 32px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    letter-spacing: 2px;
+    margin: 8px;
+    transition: var(--transition);
+    box-shadow: 0 0 16px #00ffcc55;
+  }
+  .menu-btn:hover { transform: scale(1.05); box-shadow: 0 0 28px #00ffccaa; }
+  .menu-btn.secondary {
+    background: transparent;
+    color: var(--color-primary);
+    border: 2px solid var(--color-primary);
+    box-shadow: none;
+  }
+  .menu-btn.secondary:hover { background: rgba(0,255,204,0.1); }
+  /* ---- LEVEL SELECT ---- */
+  #levelSelect {
+    background: radial-gradient(ellipse at 50% 30%, #0d0d2e 0%, #0a0a1a 80%);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .level-select-title {
+    font-family: var(--font-display);
+    font-size: clamp(0.7rem, 2vw, 1rem);
+    color: var(--color-primary);
+    text-align: center;
+    margin-bottom: 24px;
+    letter-spacing: 3px;
+  }
+  .levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(220px,100%), 1fr));
+    gap: 12px;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto 20px;
+  }
+  .level-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .level-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .level-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.25); }
+  .level-card:hover::before { opacity: 1; }
+  .level-num {
+    font-family: var(--font-display);
+    font-size: 0.55rem;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+  .level-name {
+    font-family: var(--font-display);
+    font-size: clamp(0.45rem, 1.2vw, 0.6rem);
+    color: #fff;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .level-theme-desc {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .diff-balls {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .ball {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+  }
+  .ball.filled { background: currentColor; }
+  /* ---- HUD ---- */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    z-index: 5;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+  }
+  #hud.hidden { display: none; }
+  .hud-label {
+    font-family: var(--font-display);
+    font-size: 0.5rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 2px;
+    margin-bottom: 2px;
+  }
+  .hud-value {
+    font-family: var(--font-display);
+    font-size: clamp(0.5rem, 1.5vw, 0.75rem);
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-bar-wrap {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    z-index: 5;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    transition: width 0.1s;
+    box-shadow: 0 0 8px var(--color-primary);
+  }
+  /* ---- PAUSE / OVERLAY ---- */
+  #pauseOverlay, #deathOverlay, #winOverlay {
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+  }
+  .overlay-title {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 3vw, 2rem);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .overlay-sub {
+    font-family: var(--font-display);
+    font-size: clamp(0.4rem, 1vw, 0.6rem);
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 32px;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+  #deathOverlay .overlay-title { color: var(--color-danger); }
+  #winOverlay .overlay-title { color: var(--color-gold); }
+  #pauseOverlay .overlay-title { color: var(--color-primary); }
+  /* ---- DEBUG ---- */
+  #debug {
+    position: fixed; top: 0; left: 0;
+    background: rgba(0,0,0,0.75);
+    color: #0f0;
+    font: 11px/1.5 monospace;
+    padding: 4px 8px;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  .controls-hint {
+    font-family: var(--font-display);
+    font-size: 0.5rem;
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    margin-top: 16px;
+    letter-spacing: 2px;
+    line-height: 2;
+  }
+  /* Pixel stars decoration */
+  .stars-bg {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .stars-bg canvas { width:100%; height:100%; }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="debug">FPS:-- 0ms</div>
+
+<!-- TITLE SCREEN -->
+<div id="titleScreen" class="screen">
+  <div class="title-logo">⭐ GALAXY RUSH ⭐</div>
+  <div class="title-sub">A Pixel Precision Platformer</div>
+  <svg width="180" height="90" viewBox="0 0 180 90" style="margin:0 auto 28px;display:block;">
+    <!-- pixel character running -->
+    <rect x="70" y="50" width="16" height="16" fill="#00ffcc" rx="2"/>
+    <rect x="74" y="46" width="8" height="6" fill="#ff99cc" rx="1"/>
+    <rect x="70" y="66" width="5" height="8" fill="#00ffcc"/>
+    <rect x="81" y="66" width="5" height="8" fill="#00ffcc"/>
+    <!-- obstacles ahead -->
+    <rect x="110" y="54" width="12" height="12" fill="#ff4466" rx="1"/>
+    <rect x="130" y="48" width="8" height="18" fill="#cc66ff" rx="1"/>
+    <rect x="150" y="56" width="10" height="10" fill="#ffd700" rx="1"/>
+    <!-- ground -->
+    <rect x="60" y="73" width="120" height="4" fill="rgba(255,255,255,0.15)" rx="2"/>
+    <!-- stars -->
+    <circle cx="20" cy="15" r="1.5" fill="#fff" opacity="0.8"/>
+    <circle cx="50" cy="8" r="1" fill="#fff" opacity="0.6"/>
+    <circle cx="140" cy="12" r="2" fill="#00ffcc" opacity="0.7"/>
+    <circle cx="160" cy="5" r="1" fill="#fff" opacity="0.5"/>
+    <circle cx="10" cy="40" r="1.5" fill="#cc66ff" opacity="0.7"/>
+  </svg>
+  <button class="menu-btn" onclick="showScreen('levelSelect')">▶ PLAY</button>
+  <button class="menu-btn secondary" onclick="showScreen('howToPlay')">? HOW TO PLAY</button>
+  <div class="controls-hint">SPACE / CLICK to jump<br>ESC to pause</div>
+</div>
+
+<!-- HOW TO PLAY -->
+<div id="howToPlay" class="screen hidden" style="background:radial-gradient(ellipse at 50% 30%,#0d0d2e,#0a0a1a 80%);">
+  <div class="level-select-title">HOW TO PLAY</div>
+  <div style="max-width:500px;width:90%;text-align:center;line-height:2.2;">
+    <p style="font-family:var(--font-display);font-size:0.55rem;margin-bottom:20px;color:#aaa;line-height:2">
+      🎮 SPACEBAR or CLICK to JUMP<br>
+      🌟 Jump over obstacles to survive<br>
+      ⚡ Hit an obstacle = restart level<br>
+      🏆 Reach the finish to WIN<br>
+      💫 Try all 15 levels!
+    </p>
+    <div style="font-family:var(--font-display);font-size:0.5rem;color:#666;margin-top:12px;line-height:2.4;">
+      BALL DIFFICULTY SYSTEM:<br>
+      ⚪ 1 Ball = Easy<br>
+      🟡 2 Balls = Medium<br>
+      🟠 3 Balls = Hard<br>
+      🔴 4 Balls = Very Hard<br>
+      🔥 5 Balls = EXTREME
+    </div>
+  </div>
+  <button class="menu-btn" style="margin-top:24px;" onclick="showScreen('levelSelect')">SELECT LEVEL</button>
+  <button class="menu-btn secondary" onclick="showScreen('titleScreen')">◀ BACK</button>
+</div>
+
+<!-- LEVEL SELECT -->
+<div id="levelSelect" class="screen hidden">
+  <div class="level-select-title">⭐ SELECT LEVEL</div>
+  <div class="levels-grid" id="levelsGrid"></div>
+  <button class="menu-btn secondary" onclick="showScreen('titleScreen')" style="margin-top:8px;">◀ BACK</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden" style="pointer-events:none;">
+  <div>
+    <div class="hud-label">LEVEL</div>
+    <div class="hud-value" id="hudLevel">-</div>
+  </div>
+  <div style="text-align:center;">
+    <div class="hud-label">ATTEMPTS</div>
+    <div class="hud-value" id="hudAttempts">1</div>
+  </div>
+  <div style="text-align:right; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+    <div>
+      <div class="hud-label">PROGRESS</div>
+      <div class="hud-value" id="hudProgress">0%</div>
+    </div>
+    <button
+      class="menu-btn secondary"
+      style="padding:6px 10px;font-size:0.45rem;pointer-events:auto;"
+      onclick="if(state.mode==='playing'){ state.mode='paused'; showScreen('pauseOverlay'); document.getElementById('hud').classList.add('hidden'); }"
+    >
+      ❚❚ PAUSE
+    </button>
+  </div>
+</div>
+<div class="progress-bar-wrap" id="progressBarWrap" style="display:none;">
+  <div class="progress-bar-fill" id="progressBarFill" style="width:0%"></div>
+</div>
+
+<!-- PAUSE -->
+<div id="pauseOverlay" class="screen hidden">
+  <div class="overlay-title">⏸ PAUSED</div>
+  <div class="overlay-sub">TAKE A BREATHER!</div>
+  <button class="menu-btn" onclick="resumeGame()">▶ RESUME</button>
+  <button class="menu-btn secondary" onclick="restartLevel()">↺ RESTART</button>
+  <button class="menu-btn secondary" onclick="exitToMenu()">⌂ LEVELS</button>
+</div>
+
+<!-- DEATH -->
+<div id="deathOverlay" class="screen hidden">
+  <div class="overlay-title">💀 OUCH!</div>
+  <div class="overlay-sub" id="deathMsg">YOU HIT AN OBSTACLE!</div>
+  <div style="font-family:var(--font-display);font-size:0.55rem;color:#888;margin-bottom:24px;text-align:center;">
+    ATTEMPT <span id="deathAttempt">1</span>
+  </div>
+  <button class="menu-btn" onclick="restartLevel()">↺ TRY AGAIN</button>
+  <button class="menu-btn secondary" onclick="exitToMenu()">⌂ LEVELS</button>
+</div>
+
+<!-- WIN -->
+<div id="winOverlay" class="screen hidden">
+  <div class="overlay-title">🏆 LEVEL CLEAR!</div>
+  <div class="overlay-sub" id="winMsg">AWESOME JOB!</div>
+  <div style="font-family:var(--font-display);font-size:0.55rem;color:#888;margin-bottom:24px;text-align:center;line-height:2;">
+    COMPLETED IN <span id="winAttempts">1</span> ATTEMPTS
+  </div>
+  <button class="menu-btn" id="nextLevelBtn" onclick="nextLevel()">▶ NEXT LEVEL</button>
+  <button class="menu-btn secondary" onclick="exitToMenu()">⌂ LEVELS</button>
+</div>
+
+<script>
+// ============================================================
+// LEVEL DEFINITIONS — 15 Levels
+// ============================================================
+const LEVELS = [
+  {
+    id:1, name:'GALAXY JUMP', emoji:'🌌',
+    desc:'Deep space, neon planets',
+    diff:1.0,
+    bgColors:['#0a0520','#0d0a2a','#0a0520'],
+    floorColor:'#1a0a4a', playerColor:'#00ffcc',
+    obstacleColor:'#cc44ff', accentColor:'#00ffcc',    speed:187, jumpForce:-520, gravity:1400,
+    obstaclePattern:[
+      {type:'block',w:32,h:48,gap:320},
+      {type:'block',w:28,h:40,gap:340},
+      {type:'block',w:32,h:32,gap:300},
+      {type:'spike',w:20,h:30,gap:330},
+      {type:'block',w:32,h:50,gap:320},
+      {type:'spike',w:20,h:28,gap:310},
+    ]
+  },
+  {
+    id:2, name:'SUNSET VIBES', emoji:'🌅',
+    desc:'Warm orange, palm silhouettes',
+    diff:1.5,
+    bgColors:['#1a0a00','#2a1000','#1a0500'],
+    floorColor:'#2d1a00', playerColor:'#ff8844',
+    obstacleColor:'#ff4400', accentColor:'#ffcc44',    speed:204, jumpForce:-540, gravity:1450,
+    obstaclePattern:[
+      {type:'block',w:28,h:52,gap:310},
+      {type:'block',w:32,h:36,gap:320},
+      {type:'spike',w:24,h:32,gap:300},
+      {type:'block',w:40,h:44,gap:330},
+      {type:'spike',w:20,h:28,gap:290},
+      {type:'block',w:32,h:60,gap:315},
+      {type:'spike',w:22,h:32,gap:305},
+    ]
+  },
+  {
+    id:3, name:'FROZEN PEAKS', emoji:'❄️',
+    desc:'Icy obstacles, snowflakes',
+    diff:2.0,
+    bgColors:['#050a1a','#0a1020','#05080f'],
+    floorColor:'#0a1e2e', playerColor:'#88ddff',
+    obstacleColor:'#44aaff', accentColor:'#ffffff',    speed:216, jumpForce:-555, gravity:1500,
+    obstaclePattern:[
+      {type:'block',w:32,h:56,gap:300},
+      {type:'spike',w:22,h:34,gap:285},
+      {type:'block',w:36,h:40,gap:310},
+      {type:'spike',w:24,h:36,gap:280},
+      {type:'block',w:32,h:64,gap:295},
+      {type:'block',w:28,h:44,gap:290},
+      {type:'spike',w:20,h:30,gap:275},
+      {type:'block',w:40,h:52,gap:290},
+    ]
+  },
+  {
+    id:4, name:'LAVA KINGDOM', emoji:'🌋',
+    desc:'Molten rocks, fire pits',
+    diff:2.5,
+    bgColors:['#1a0500','#2a0800','#1a0300'],
+    floorColor:'#2a0a00', playerColor:'#ff6600',
+    obstacleColor:'#ff2200', accentColor:'#ffaa00',    speed:229, jumpForce:-565, gravity:1550,
+    obstaclePattern:[
+      {type:'block',w:32,h:60,gap:295},
+      {type:'spike',w:24,h:38,gap:275},
+      {type:'block',w:36,h:44,gap:285},
+      {type:'spike',w:22,h:34,gap:270},
+      {type:'block',w:28,h:68,gap:280},
+      {type:'spike',w:26,h:40,gap:265},
+      {type:'block',w:40,h:52,gap:278},
+      {type:'spike',w:20,h:30,gap:260},
+      {type:'block',w:32,h:56,gap:275},
+    ]
+  },
+  {
+    id:5, name:'JUNGLE RUINS', emoji:'🌿',
+    desc:'Ancient temples, vines',
+    diff:2.5,
+    bgColors:['#030e00','#061200','#040f00'],
+    floorColor:'#0a1e00', playerColor:'#44ff88',
+    obstacleColor:'#228833', accentColor:'#aaff44',    speed:233, jumpForce:-570, gravity:1560,
+    obstaclePattern:[
+      {type:'block',w:40,h:56,gap:290},
+      {type:'spike',w:24,h:36,gap:268},
+      {type:'block',w:32,h:44,gap:280},
+      {type:'block',w:28,h:64,gap:275},
+      {type:'spike',w:22,h:32,gap:262},
+      {type:'block',w:36,h:52,gap:272},
+      {type:'spike',w:26,h:40,gap:260},
+      {type:'block',w:44,h:56,gap:270},
+      {type:'spike',w:20,h:30,gap:258},
+    ]
+  },
+  {
+    id:6, name:'DEEP OCEAN', emoji:'🌊',
+    desc:'Underwater caves, coral',
+    diff:3.0,
+    bgColors:['#000a18','#000f22','#000a1a'],
+    floorColor:'#001428', playerColor:'#00ccff',
+    obstacleColor:'#0066cc', accentColor:'#00ffee',    speed:242, jumpForce:-575, gravity:1580,
+    obstaclePattern:[
+      {type:'block',w:32,h:64,gap:278},
+      {type:'spike',w:26,h:40,gap:258},
+      {type:'block',w:36,h:48,gap:268},
+      {type:'spike',w:24,h:38,gap:255},
+      {type:'block',w:28,h:72,gap:265},
+      {type:'spike',w:22,h:34,gap:252},
+      {type:'block',w:44,h:56,gap:262},
+      {type:'block',w:32,h:60,gap:260},
+      {type:'spike',w:28,h:44,gap:250},
+      {type:'block',w:36,h:52,gap:258},
+    ]
+  },
+  {
+    id:7, name:'DESERT STORM', emoji:'🏜️',
+    desc:'Sand dunes, pyramid traps',
+    diff:3.0,
+    bgColors:['#1a1000','#221500','#1a1000'],
+    floorColor:'#2a1a00', playerColor:'#ffdd44',
+    obstacleColor:'#cc8800', accentColor:'#ff9900',    speed:246, jumpForce:-578, gravity:1590,
+    obstaclePattern:[
+      {type:'spike',w:28,h:42,gap:272},
+      {type:'block',w:36,h:56,gap:260},
+      {type:'spike',w:24,h:38,gap:255},
+      {type:'block',w:32,h:68,gap:264},
+      {type:'spike',w:30,h:46,gap:250},
+      {type:'block',w:28,h:44,gap:258},
+      {type:'spike',w:22,h:34,gap:245},
+      {type:'block',w:40,h:60,gap:256},
+      {type:'spike',w:26,h:40,gap:242},
+      {type:'block',w:36,h:52,gap:252},
+    ]
+  },
+  {
+    id:8, name:'CYBER CITY', emoji:'🌆',
+    desc:'Neon skyline, tech grid',
+    diff:3.5,
+    bgColors:['#000510','#000818','#000410'],
+    floorColor:'#001028', playerColor:'#ff00ff',
+    obstacleColor:'#aa00ff', accentColor:'#00ffff',    speed:255, jumpForce:-582, gravity:1620,
+    obstaclePattern:[
+      {type:'block',w:36,h:68,gap:268},
+      {type:'spike',w:28,h:44,gap:248},
+      {type:'block',w:32,h:52,gap:258},
+      {type:'spike',w:26,h:40,gap:242},
+      {type:'block',w:40,h:76,gap:262},
+      {type:'spike',w:30,h:48,gap:238},
+      {type:'block',w:28,h:56,gap:255},
+      {type:'block',w:36,h:60,gap:252},
+      {type:'spike',w:24,h:38,gap:235},
+      {type:'block',w:44,h:64,gap:248},
+      {type:'spike',w:28,h:44,gap:232},
+    ]
+  },
+  {
+    id:9, name:'HAUNTED WOODS', emoji:'🎃',
+    desc:'Dark forest, ghost traps',
+    diff:3.5,
+    bgColors:['#050008','#08000e','#040008'],
+    floorColor:'#0d001a', playerColor:'#aaaaff',
+    obstacleColor:'#6600aa', accentColor:'#ff88ff',    speed:259, jumpForce:-584, gravity:1640,
+    obstaclePattern:[
+      {type:'spike',w:28,h:44,gap:262},
+      {type:'block',w:36,h:60,gap:250},
+      {type:'spike',w:32,h:50,gap:245},
+      {type:'block',w:28,h:72,gap:255},
+      {type:'spike',w:24,h:38,gap:238},
+      {type:'block',w:44,h:56,gap:248},
+      {type:'spike',w:30,h:48,gap:234},
+      {type:'block',w:32,h:64,gap:242},
+      {type:'spike',w:26,h:42,gap:230},
+      {type:'block',w:40,h:68,gap:238},
+      {type:'spike',w:28,h:44,gap:226},
+    ]
+  },
+  {
+    id:10, name:'THUNDER PEAK', emoji:'⚡',
+    desc:'Storm clouds, lightning grid',
+    diff:4.0,
+    bgColors:['#050510','#08081a','#050510'],
+    floorColor:'#0a0a20', playerColor:'#ffff44',
+    obstacleColor:'#4444ff', accentColor:'#aaaaff',    speed:267, jumpForce:-588, gravity:1660,
+    obstaclePattern:[
+      {type:'block',w:36,h:72,gap:258},
+      {type:'spike',w:30,h:48,gap:238},
+      {type:'block',w:32,h:56,gap:248},
+      {type:'spike',w:28,h:44,gap:232},
+      {type:'block',w:44,h:80,gap:252},
+      {type:'spike',w:26,h:42,gap:228},
+      {type:'block',w:36,h:64,gap:248},
+      {type:'spike',w:30,h:48,gap:225},
+      {type:'block',w:28,h:72,gap:242},
+      {type:'spike',w:32,h:52,gap:222},
+      {type:'block',w:44,h:60,gap:238},
+      {type:'spike',w:28,h:44,gap:218},
+    ]
+  },
+  {
+    id:11, name:'CRYSTAL CAVE', emoji:'💎',
+    desc:'Gemstone maze, rainbow shards',
+    diff:4.0,
+    bgColors:['#080018','#0c0022','#080018'],
+    floorColor:'#10002e', playerColor:'#ff88cc',
+    obstacleColor:'#8844ff', accentColor:'#ff44cc',    speed:272, jumpForce:-590, gravity:1680,
+    obstaclePattern:[
+      {type:'spike',w:32,h:52,gap:252},
+      {type:'block',w:40,h:76,gap:238},
+      {type:'spike',w:28,h:44,gap:228},
+      {type:'block',w:36,h:64,gap:240},
+      {type:'spike',w:34,h:54,gap:225},
+      {type:'block',w:44,h:80,gap:235},
+      {type:'spike',w:30,h:48,gap:220},
+      {type:'block',w:32,h:68,gap:232},
+      {type:'spike',w:28,h:44,gap:216},
+      {type:'block',w:48,h:72,gap:228},
+      {type:'spike',w:32,h:52,gap:212},
+      {type:'block',w:36,h:76,gap:224},
+    ]
+  },
+  {
+    id:12, name:'BLACK HOLE', emoji:'🕳️',
+    desc:'Gravity chaos, void spikes',
+    diff:4.5,
+    bgColors:['#000000','#020008','#000000'],
+    floorColor:'#080010', playerColor:'#ffffff',
+    obstacleColor:'#ff0088', accentColor:'#8800ff',    speed:280, jumpForce:-592, gravity:1700,
+    obstaclePattern:[
+      {type:'block',w:44,h:80,gap:245},
+      {type:'spike',w:34,h:56,gap:225},
+      {type:'block',w:32,h:68,gap:235},
+      {type:'spike',w:30,h:48,gap:218},
+      {type:'block',w:48,h:84,gap:230},
+      {type:'spike',w:36,h:58,gap:215},
+      {type:'block',w:40,h:72,gap:225},
+      {type:'spike',w:32,h:52,gap:210},
+      {type:'block',w:44,h:80,gap:220},
+      {type:'spike',w:34,h:56,gap:206},
+      {type:'block',w:36,h:68,gap:215},
+      {type:'spike',w:30,h:50,gap:202},
+    ]
+  },
+  {
+    id:13, name:"DRAGON'S LAIR', emoji:'🐉",
+    desc:'Fire breath, scale walls',
+    diff:4.5,
+    bgColors:['#1a0000','#200000','#150000'],
+    floorColor:'#200000', playerColor:'#ff4400',
+    obstacleColor:'#cc0000', accentColor:'#ff8800',    speed:284, jumpForce:-594, gravity:1720,
+    obstaclePattern:[
+      {type:'spike',w:36,h:58,gap:240},
+      {type:'block',w:44,h:84,gap:220},
+      {type:'spike',w:32,h:52,gap:212},
+      {type:'block',w:48,h:76,gap:225},
+      {type:'spike',w:38,h:62,gap:208},
+      {type:'block',w:40,h:88,gap:218},
+      {type:'spike',w:34,h:56,gap:203},
+      {type:'block',w:52,h:80,gap:212},
+      {type:'spike',w:36,h:58,gap:198},
+      {type:'block',w:44,h:84,gap:208},
+      {type:'spike',w:32,h:52,gap:194},
+      {type:'block',w:48,h:76,gap:202},
+      {type:'spike',w:38,h:62,gap:190},
+    ]
+  },
+  {
+    id:14, name:'NEON APOCALYPSE', emoji:'☢️',
+    desc:'Radioactive ruins, chaos',
+    diff:4.5,
+    bgColors:['#001a00','#002200','#001500'],
+    floorColor:'#003300', playerColor:'#00ff44',
+    obstacleColor:'#00cc22', accentColor:'#44ff00',    speed:290, jumpForce:-596, gravity:1740,
+    obstaclePattern:[
+      {type:'block',w:48,h:88,gap:235},
+      {type:'spike',w:38,h:62,gap:214},
+      {type:'block',w:44,h:76,gap:225},
+      {type:'spike',w:36,h:58,gap:208},
+      {type:'block',w:52,h:92,gap:218},
+      {type:'spike',w:40,h:66,gap:203},
+      {type:'block',w:44,h:80,gap:212},
+      {type:'spike',w:36,h:58,gap:198},
+      {type:'block',w:56,h:84,gap:205},
+      {type:'spike',w:38,h:62,gap:192},
+      {type:'block',w:48,h:88,gap:200},
+      {type:'spike',w:42,h:68,gap:188},
+      {type:'block',w:44,h:76,gap:195},
+      {type:'spike',w:38,h:62,gap:184},
+    ]
+  },
+  {
+    id:15, name:'THE VOID FINALE', emoji:'💀',
+    desc:'EXTREME — Ultimate challenge',
+    diff:5.0,
+    bgColors:['#000000','#05000a','#000000'],
+    floorColor:'#0a000a', playerColor:'#ff0000',
+    obstacleColor:'#ff0000', accentColor:'#ff00ff',    speed:301, jumpForce:-600, gravity:1780,
+    obstaclePattern:[
+      {type:'block',w:52,h:92,gap:225},
+      {type:'spike',w:42,h:68,gap:203},
+      {type:'block',w:48,h:80,gap:214},
+      {type:'spike',w:40,h:64,gap:198},
+      {type:'block',w:56,h:96,gap:208},
+      {type:'spike',w:44,h:72,gap:193},
+      {type:'block',w:52,h:84,gap:202},
+      {type:'spike',w:40,h:66,gap:188},
+      {type:'block',w:60,h:88,gap:196},
+      {type:'spike',w:46,h:74,gap:183},
+      {type:'block',w:48,h:92,gap:190},
+      {type:'spike',w:42,h:68,gap:177},
+      {type:'block',w:56,h:96,gap:184},
+      {type:'spike',w:44,h:72,gap:172},
+      {type:'block',w:52,h:88,gap:178},
+    ]
+  },
+];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+const FLOOR_Y = () => H - 80;
+const PIXEL = 4;
+
+let state = {
+  mode: 'menu', // menu | playing | paused | dead | win
+  level: null,
+  attempts: 1,
+  progress: 0,
+  player: { x: 80, y: 0, vy: 0, grounded: false, size: 28, rotation: 0, jumpCount: 0 },
+  obstacles: [],
+  particles: [],
+  bgScrollX: 0,
+  levelScrollX: 0,
+  levelLength: 0,
+  startTime: 0,
+  stars: [],
+  decorations: [],
+  jumpCount: 0,
+};
+
+// ============================================================
+// AUDIO (Web Audio API — procedural SFX)
+// ============================================================
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playSFX(freq=440, dur=0.12, type='square', vol=0.25) {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq*0.5, audioCtx.currentTime+dur);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime+dur);
+  } catch(e){}
+}
+function playJump(isDouble) {
+  if (isDouble) {
+    playSFX(720, 0.12, 'square', 0.25);
+  } else {
+    playSFX(480, 0.1, 'square', 0.2);
+  }
+}
+
+function playDeath() {
+  playSFX(200, 0.2, 'sawtooth', 0.3);
+  setTimeout(() => playSFX(150, 0.3, 'sawtooth', 0.25), 100);
+}
+function playWin() {
+  [523,659,784,1047].forEach((f,i) => setTimeout(() => playSFX(f, 0.15, 'square', 0.2), i*120));
+}
+
+// ============================================================
+// PARTICLES
+// ============================================================
+function spawnParticles(x, y, color, count=8) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI*2/count)*i + Math.random()*0.5;
+    const speed = 80 + Math.random()*120;
+    state.particles.push({
+      x, y,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed - 60,
+      life: 0.6 + Math.random()*0.4,
+      maxLife: 0.8,
+      color,
+      size: 3 + Math.random()*4
+    });
+  }
+}
+
+// ============================================================
+// LEVEL SETUP
+// ============================================================
+function buildDecorationsForLevel(lvl) {
+  const floorY = FLOOR_Y();
+  const W2 = W;
+  const H2 = H;
+  const decos = {
+    far: [],
+    mid: [],
+    fore: [],
+    flashes: [],
+  };
+  const t = Date.now() * 0.001;
+
+  const addPlanet = (x, y, r, color, speed) => decos.far.push({type:'planet', x, y, r, color, speed});
+  const addStarLine = (x1,y1,x2,y2,color,speed) => decos.mid.push({type:'starLine', x1,y1,x2,y2,color,speed});
+  const addSnow = (count) => {
+    const arr = [];
+    for (let i=0;i<count;i++) {
+      arr.push({x:Math.random()*W2, y:Math.random()*H2, r:Math.random()*2+0.5, vx:-20-Math.random()*20, vy:20+Math.random()*30});
+    }
+    decos.mid.push({type:'snow', flakes:arr});
+  };
+
+  switch (lvl.id) {
+    case 1: // Galaxy Jump
+      for (let i=0;i<5;i++) {
+        addPlanet(100 + i*280, 80 + (i%2)*60, 30+10*i, i%2? '#ff66ff':'#00ffff', 0.1+0.02*i);
+      }
+      for (let i=0;i<12;i++) {
+        const x1 = i*160 + 20;
+        const y1 = 40 + (i%3)*30;
+        const x2 = x1 + 40;
+        const y2 = y1 + ((i%2)?20:-20);
+        addStarLine(x1,y1,x2,y2,'rgba(200,200,255,0.4)',0.2);
+      }
+      break;
+
+    case 2: // Sunset Vibes
+      decos.far.push({
+        type:'sun', x:W2*0.5, y:H2*0.35, r:W2*0.18,
+        color:'#ffdd55'
+      });
+      for (let x=0;x<W2+200;x+=140) {
+        decos.mid.push({type:'palmHill', baseX:x, speed:0.3});
+      }
+      break;
+
+    case 3: // Frozen Peaks
+      for (let i=0;i<10;i++) {
+        const baseX = i*200;
+        decos.far.push({type:'mountain', x:baseX, w:180, h:120+Math.random()*60, color:'#e0f6ff', speed:0.12});
+      }
+      addSnow(120);
+      break;
+
+    case 4: // Lava Kingdom
+      for (let i=0;i<8;i++) {
+        const baseX = i*260;
+        decos.far.push({type:'lavaMount', x:baseX, w:220, h:130+Math.random()*40, baseColor:'#2a0500', glowColor:'#ff3311', speed:0.15});
+      }
+      decos.mid.push({type:'lavaSparks', particles:[]});
+      decos.fore.push({type:'lavaFloor', phase:0});
+      break;
+
+    case 5: // Jungle Ruins
+      for (let x=-200;x<W2+200;x+=180) {
+        decos.far.push({type:'pillar', x, speed:0.15});
+      }
+      for (let x=-160;x<W2+160;x+=140) {
+        decos.mid.push({type:'vine', x, swayOffset:Math.random()*Math.PI*2, speed:0.25});
+      }
+      break;
+
+    case 6: // Deep Ocean
+      for (let i=0;i<5;i++) {
+        decos.far.push({type:'lightColumn', x:i*220+80, speed:0.12});
+      }
+      decos.mid.push({type:'bubbles', particles:[]});
+      for (let x=-120;x<W2+120;x+=140) {
+        decos.mid.push({type:'coral', x, speed:0.35});
+      }
+      break;
+
+    case 7: // Desert Storm
+      for (let x=-200;x<W2+200;x+=200) {
+        decos.far.push({type:'dune', x, speed:0.1});
+      }
+      for (let x=0;x<W2+400;x+=260) {
+        decos.far.push({type:'pyramid', x, speed:0.1});
+      }
+      decos.mid.push({type:'sandWind', streaks:[]});
+      break;
+
+    case 8: // Cyber City
+      for (let i=0;i<12;i++) {
+        decos.far.push({type:'neonTower', x:i*160, w:80, h:120+Math.random()*80, speed:0.18});
+      }
+      decos.mid.push({type:'dataStream', bands:[]});
+      break;
+
+    case 9: // Haunted Woods
+      decos.far.push({type:'moon', x:W2*0.8, y:H2*0.25, r:W2*0.12});
+      for (let x=-180;x<W2+180;x+=160) {
+        decos.mid.push({type:'hauntTree', x, speed:0.25});
+      }
+      decos.mid.push({type:'wisps', particles:[]});
+      break;
+
+    case 10: // Thunder Peak
+      for (let x=-200;x<W2+200;x+=220) {
+        decos.far.push({type:'stormCloud', x, speed:0.12});
+      }
+      decos.flashes.push({type:'lightning', active:false, t:0});
+      break;
+
+    case 11: // Crystal Cave
+      decos.far.push({type:'caveWalls'});
+      decos.mid.push({type:'crystals', clusters:[]});
+      break;
+
+    case 12: // Black Hole
+      decos.far.push({type:'blackHole', x:W2*0.7, y:H2*0.45, r:W2*0.22});
+      decos.mid.push({type:'stretchedStars', particles:[]});
+      break;
+
+    case 13: // DRAGON'S LAIR
+      for (let x=-150;x<W2+150;x+=160) {
+        decos.far.push({type:'brickWall', x, speed:0.18});
+      }
+      decos.mid.push({type:'chains'});
+      decos.mid.push({type:'embers', particles:[]});
+      break;
+
+    case 14: // Neon Apocalypse
+      for (let x=-200;x<W2+200;x+=200) {
+        decos.far.push({type:'ruinTower', x, speed:0.16});
+      }
+      decos.mid.push({type:'toxicHaze', particles:[]});
+      break;
+
+    case 15: // The Void Finale
+      decos.far.push({type:'glitchGrid'});
+      decos.mid.push({type:'voidPulse', t0:t});
+      break;
+  }
+
+  return decos;
+}
+
+function buildLevel(lvl) {
+  const pattern = lvl.obstaclePattern;
+  let xPos = W + 100;
+  const obstacles = [];
+  const reps = Math.ceil(20 / pattern.length) + 2;
+  for (let r = 0; r < reps; r++) {
+    for (let p = 0; p < pattern.length; p++) {
+      const tmpl = pattern[p];
+      const gap = tmpl.gap || 280;
+      xPos += gap;
+      const floorY = FLOOR_Y();
+      if (tmpl.type === 'block') {
+        obstacles.push({
+          type: 'block',
+          x: xPos, y: floorY - tmpl.h,
+          w: tmpl.w, h: tmpl.h,
+          color: lvl.obstacleColor
+        });
+      } else {
+        // spike = triangle
+        obstacles.push({
+          type: 'spike',
+          x: xPos, y: floorY - tmpl.h,
+          w: tmpl.w, h: tmpl.h,
+          color: lvl.obstacleColor
+        });
+      }
+    }
+  }
+  // Calculate total level length (last obstacle + finish zone)
+  const lastX = obstacles.length > 0 ? obstacles[obstacles.length-1].x + 600 : W + 3200;
+  return { obstacles, levelLength: lastX + 400 };
+}
+
+function generateStars(count=120) {
+  const stars = [];
+  for (let i=0;i<count;i++) {
+    stars.push({
+      x: Math.random()*3000,
+      y: Math.random()*(H*0.75),
+      r: Math.random()*2+0.5,
+      speed: 0.1 + Math.random()*0.4,
+      brightness: 0.4 + Math.random()*0.6
+    });
+  }
+  return stars;
+}
+
+function startLevel(lvlId) {
+  ensureAudio();
+  const lvl = LEVELS.find(l => l.id === lvlId);
+  if (!lvl) return;
+  const built = buildLevel(lvl);
+  const floorY = FLOOR_Y();
+  state = {
+    ...state,
+    mode: 'playing',
+    level: lvl,
+    attempts: state.level && state.level.id === lvlId ? state.attempts : 1,
+    progress: 0,
+    player: { x: 100, y: floorY - 28, vy: 0, grounded: true, size: 28, rotation: 0, jumpCount: 0 },
+    obstacles: built.obstacles,
+    particles: [],
+    bgScrollX: 0,
+    levelScrollX: 0,
+    levelLength: built.levelLength,
+    startTime: performance.now(),
+    stars: generateStars(),
+    decorations: buildDecorationsForLevel(lvl),
+  };
+  hideAllScreens();
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('progressBarWrap').style.display = 'block';
+  document.getElementById('hudLevel').textContent = 'LV ' + lvl.id;
+  document.getElementById('hudAttempts').textContent = state.attempts;
+}
+
+function restartLevel() {
+  if (!state.level) return;
+  state.attempts++;
+  startLevel(state.level.id);
+}
+
+function nextLevel() {
+  if (!state.level) return;
+  const nextId = state.level.id + 1;
+  if (nextId <= 15) startLevel(nextId);
+  else exitToMenu();
+}
+
+function exitToMenu() {
+  state.mode = 'menu';
+  hideAllScreens();
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('progressBarWrap').style.display = 'none';
+  showScreen('levelSelect');
+}
+
+function resumeGame() {
+  state.mode = 'playing';
+  hideAllScreens();
+  document.getElementById('hud').classList.remove('hidden');
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+
+  if ((e.code==='Space'||e.code==='ArrowUp') && state.mode==='playing') {
+    jump();
+    e.preventDefault();
+  }
+
+  if (e.code==='Escape' || e.code==='KeyP') {
+    if (state.mode==='playing') {
+      state.mode='paused';
+      showScreen('pauseOverlay');
+      document.getElementById('hud').classList.add('hidden');
+    } else if (state.mode==='paused') {
+      resumeGame();
+    }
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+document.addEventListener('click', e => {
+  ensureAudio();
+  if (state.mode==='playing') jump();
+});
+document.addEventListener('touchstart', e => {
+  ensureAudio();
+  if (state.mode==='playing') jump();
+}, { passive:true });
+
+function jump() {
+  const p = state.player;
+  // First jump from ground
+  if (p.grounded) {
+    p.vy = state.level.jumpForce;
+    p.grounded = false;
+    p.jumpCount = 1;
+    playJump(false);
+    spawnParticles(p.x+p.size/2, p.y+p.size, '#00ffcc', 6);
+    return;
+  }
+  // Double jump in air
+  if (!p.grounded && p.jumpCount < 2) {
+    p.vy = state.level.jumpForce * 0.9; // a bit shorter than first jump
+    p.jumpCount = 2;
+    playJump(true);
+    // Extra flashy particles for double jump
+    spawnParticles(p.x+p.size/2, p.y+p.size, '#ffffff', 10);
+  }
+}
+
+// ============================================================
+// GAME UPDATE
+// ============================================================
+const TICK = 1/60;
+let accum = 0, lastTs = 0;
+let _fps=0, _frames=0, _fpsLast=performance.now(), _ft=0, _prev=0;
+
+function update(dt) {
+  if (state.mode !== 'playing') return;
+  const lvl = state.level;
+  const floorY = FLOOR_Y();
+
+  // Player physics
+  state.player.vy += lvl.gravity * dt;
+  state.player.y += state.player.vy * dt;
+
+  // Floor collision
+  if (state.player.y + state.player.size >= floorY) {
+    state.player.y = floorY - state.player.size;
+    state.player.vy = 0;
+    state.player.grounded = true;
+    state.player.jumpCount = 0;
+  }
+
+  // Ceiling
+  if (state.player.y < 0) { state.player.y = 0; state.player.vy = 0; }
+
+  // Scroll
+  const scrollSpeed = lvl.speed * dt;
+  state.bgScrollX += scrollSpeed * 0.3;
+  state.levelScrollX += scrollSpeed;
+
+  // Rotation of player cube
+  state.player.rotation += dt * 4;
+
+  // Progress
+  state.progress = Math.min(1, state.levelScrollX / state.levelLength);
+  document.getElementById('hudProgress').textContent = Math.floor(state.progress*100)+'%';
+  document.getElementById('progressBarFill').style.width = (state.progress*100)+'%';
+  document.getElementById('hudAttempts').textContent = state.attempts;
+
+  // WIN CHECK
+  if (state.progress >= 1) {
+    triggerWin();
+    return;
+  }
+
+  // Obstacle logic
+  for (const obs of state.obstacles) {
+    obs.screenX = obs.x - state.levelScrollX;
+  }
+
+  // Collision check
+  const px = state.player.x, py = state.player.y, ps = state.player.size;
+  const margin = 8; // more forgiving hitbox
+  for (const obs of state.obstacles) {
+    const ox = obs.screenX, oy = obs.y, ow = obs.w, oh = obs.h;
+    if (ox + ow < 0 || ox > W + 10) continue;
+
+    if (obs.type === 'block') {
+      if (px+ps-margin > ox+margin && px+margin < ox+ow-margin &&
+          py+ps-margin > oy+margin && py+margin < oy+oh-margin) {
+        triggerDeath(); return;
+      }
+    } else {
+      // Spike — point collision with player center-bottom
+      const cx = px + ps/2, cy = py + ps;
+      const tipX = ox + ow/2, tipY = oy;
+      const bL = ox, bR = ox+ow, bY = oy+oh;
+      // AABB first
+      if (cx > bL+margin && cx < bR-margin && cy > tipY+margin && py+margin < bY-margin) {
+        triggerDeath(); return;
+      }
+    }
+  }
+
+  // Particles
+  for (const p of state.particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 200 * dt;
+    p.life -= dt;
+  }
+  state.particles = state.particles.filter(p => p.life > 0);
+
+  // Stars parallax
+  for (const s of state.stars) {
+    s.x -= s.speed * scrollSpeed * 0.8;
+    if (s.x < -10) s.x = W + 20;
+  }
+}
+
+function triggerDeath() {
+  state.mode = 'dead';
+  playDeath();
+  spawnParticles(state.player.x+state.player.size/2, state.player.y+state.player.size/2, state.level.playerColor, 16);
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('deathAttempt').textContent = state.attempts;
+  const msgs = ['SO CLOSE!', 'TRY AGAIN!', 'YOU GOT THIS!', 'ALMOST!', 'KEEP GOING!'];
+  document.getElementById('deathMsg').textContent = msgs[Math.floor(Math.random()*msgs.length)];
+  setTimeout(() => showScreen('deathOverlay'), 400);
+}
+
+function triggerWin() {
+  state.mode = 'win';
+  playWin();
+  spawnParticles(state.player.x+state.player.size/2, state.player.y+state.player.size/2, '#ffd700', 24);
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('progressBarFill').style.width = '100%';
+  document.getElementById('winAttempts').textContent = state.attempts;
+  const winMsgs = ['AMAZING!', 'YOU CRUSHED IT!', 'LEGENDARY!', 'UNSTOPPABLE!'];
+  document.getElementById('winMsg').textContent = winMsgs[Math.floor(Math.random()*winMsgs.length)];
+  const nextBtn = document.getElementById('nextLevelBtn');
+  if (state.level && state.level.id >= 15) {
+    nextBtn.textContent = '🏆 ALL DONE!';
+    nextBtn.onclick = exitToMenu;
+  } else {
+    nextBtn.textContent = '▶ NEXT LEVEL';
+    nextBtn.onclick = nextLevel;
+  }
+  setTimeout(() => showScreen('winOverlay'), 600);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function drawPixelRect(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x), Math.round(y), w, h);
+}
+
+function drawLevelDecorations() {
+  const lvl = state.level;
+  if (!lvl) return;
+  const t = Date.now() * 0.001;
+  const floorY = FLOOR_Y();
+
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+
+  switch (lvl.id) {
+    case 1: // Galaxy Jump — neon planets
+      for (let i = 0; i < 6; i++) {
+        const radius = 20 + i*8;
+        const px = (W * 0.2) + (i * 120) - (state.bgScrollX * 0.15 * (i+1));
+        const py = 60 + (i%2)*40 + Math.sin(t*0.6 + i)*10;
+        ctx.fillStyle = i%2 ? lvl.accentColor : lvl.playerColor;
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI*2);
+        ctx.fill();
+      }
+      break;
+    case 2: // Sunset Vibes — palms & horizon
+      ctx.fillStyle = '#120600';
+      for (let x = -200; x < W+200; x += 80) {
+        const px = x - state.bgScrollX*0.2;
+        const base = floorY + 4;
+        ctx.fillRect(px, base-40, 4, 40);
+        ctx.beginPath();
+        ctx.moveTo(px-14, base-42);
+        ctx.lineTo(px+14, base-42);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#1a0a00';
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#ff8844';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, floorY-10);
+      ctx.lineTo(W, floorY-4);
+      ctx.stroke();
+      break;
+    case 3: // Frozen Peaks — snowfall
+      if (!state.snow) {
+        state.snow = [];
+        for (let i=0;i<120;i++) {
+          state.snow.push({
+            x: Math.random()*W,
+            y: Math.random()*H,
+            r: Math.random()*2+0.5,
+            speedY: 20+Math.random()*30,
+            speedX: -10-Math.random()*20
+          });
+        }
+      }
+      ctx.fillStyle = '#ffffff';
+      for (const s of state.snow) {
+        s.x += s.speedX * 0.016;
+        s.y += s.speedY * 0.016;
+        if (s.y > H) { s.y = -5; s.x = Math.random()*W; }
+        if (s.x < -10) s.x = W+10;
+        ctx.fillRect(Math.round(s.x), Math.round(s.y), s.r, s.r);
+      }
+      break;
+    case 4: // Lava Kingdom — glow & sparks
+      const gradLava = ctx.createLinearGradient(0, floorY-40, 0, floorY+10);
+      gradLava.addColorStop(0, 'rgba(255,80,0,0.0)');
+      gradLava.addColorStop(1, 'rgba(255,80,0,0.4)');
+      ctx.fillStyle = gradLava;
+      ctx.fillRect(0, floorY-40, W, 60);
+      if (!state.lavaSparks) state.lavaSparks = [];
+      if (state.lavaSparks.length < 80) {
+        state.lavaSparks.push({
+          x: Math.random()*W,
+          y: floorY-4,
+          vy: -40-Math.random()*40,
+          life: 1+Math.random()*1,
+        });
+      }
+      ctx.fillStyle = '#ffbb55';
+      for (const sp of state.lavaSparks) {
+        sp.y += sp.vy*0.016;
+        sp.life -= 0.02;
+        ctx.globalAlpha = Math.max(0, sp.life);
+        ctx.fillRect(sp.x, sp.y, 2, 4);
+      }
+      ctx.globalAlpha = 0.7;
+      state.lavaSparks = state.lavaSparks.filter(sp => sp.life>0);
+      break;
+    case 5: // Jungle Ruins — pillars & vines
+      ctx.strokeStyle = '#0f2b00';
+      ctx.lineWidth = 6;
+      for (let x = -150; x < W+150; x += 120) {
+        const px = x - state.bgScrollX*0.18;
+        ctx.beginPath();
+        ctx.moveTo(px, floorY+4);
+        ctx.lineTo(px, floorY-120);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#2b5f00';
+      ctx.lineWidth = 3;
+      for (let x = -120; x < W+120; x += 90) {
+        const px = x - state.bgScrollX*0.12;
+        ctx.beginPath();
+        ctx.moveTo(px, floorY-140);
+        ctx.quadraticCurveTo(px+10, floorY-110, px-10, floorY-80);
+        ctx.stroke();
+      }
+      break;
+    // Additional level-specific decorations (6–15) can be added similarly.
+  }
+
+  ctx.restore();
+}
+
+function drawLevelDecorations() {
+  const lvl = state.level;
+  if (!lvl || !state.decorations) return;
+  const floorY = FLOOR_Y();
+  const t = Date.now() * 0.001;
+  const decos = state.decorations;
+
+  ctx.save();
+
+  // === FAR BACKGROUND (10% speed) ===
+  if (decos.far) {
+    for (const d of decos.far) {
+      switch (d.type) {
+        case 'planet': {
+          const x = d.x - state.levelScrollX * (0.1 * d.speed);
+          if (x + d.r < -50 || x - d.r > W + 50) break;
+          const pulse = 0.8 + 0.2*Math.sin(t*0.8 + d.x*0.01);
+          ctx.globalAlpha = pulse;
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.arc(x, d.y, d.r, 0, Math.PI*2);
+          ctx.fill();
+          break;
+        }
+        case 'starLine': {
+          const ox = state.levelScrollX * 0.1 * d.speed;
+          ctx.globalAlpha = 0.45;
+          ctx.strokeStyle = d.color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(d.x1 - ox, d.y1);
+          ctx.lineTo(d.x2 - ox, d.y2);
+          ctx.stroke();
+          break;
+        }
+        case 'sun': {
+          const grad = ctx.createRadialGradient(d.x, d.y, d.r*0.1, d.x, d.y, d.r);
+          grad.addColorStop(0, d.color);
+          grad.addColorStop(1, 'rgba(255,120,40,0)');
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+          ctx.fill();
+          break;
+        }
+        case 'mountain': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.lineTo(x + d.w*0.5, floorY - d.h);
+          ctx.lineTo(x + d.w, floorY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'lavaMount': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = d.baseColor;
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.lineTo(x + d.w*0.5, floorY - d.h);
+          ctx.lineTo(x + d.w, floorY);
+          ctx.closePath();
+          ctx.fill();
+          const glow = 0.3 + 0.3*Math.sin(t*1.8 + x*0.01);
+          ctx.globalAlpha = glow;
+          ctx.fillStyle = d.glowColor;
+          ctx.fillRect(x + d.w*0.5 - 12, floorY - d.h - 6, 24, 12);
+          break;
+        }
+        case 'pillar': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = '#0b2200';
+          ctx.fillRect(x, 0, 40, H);
+          break;
+        }
+        case 'lightColumn': {
+          const x = d.x - state.levelScrollX*0.1;
+          const grad = ctx.createLinearGradient(x, 0, x, H);
+          grad.addColorStop(0, 'rgba(120,200,255,0.0)');
+          grad.addColorStop(0.5, 'rgba(120,200,255,0.15)');
+          grad.addColorStop(1, 'rgba(120,200,255,0.0)');
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = grad;
+          ctx.fillRect(x-40, 0, 80, H);
+          break;
+        }
+        case 'dune': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = '#c89b4b';
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.quadraticCurveTo(x+80, floorY-40, x+180, floorY);
+          ctx.lineTo(x+180, H);
+          ctx.lineTo(x, H);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'pyramid': {
+          const x = d.x - state.levelScrollX*0.1;
+          const size = 80;
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = '#e0b96a';
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.lineTo(x+size*0.5, floorY- size);
+          ctx.lineTo(x+size, floorY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'neonTower': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.8;
+          ctx.fillStyle = '#050515';
+          ctx.fillRect(x, floorY-d.h, d.w, d.h);
+          ctx.fillStyle = '#08f';
+          for (let yy=floorY-d.h+8; yy<floorY; yy+=10) {
+            for (let xx=x+4; xx<x+d.w-4; xx+=12) {
+              if (Math.random() < 0.4) ctx.fillRect(xx, yy, 3, 3);
+            }
+          }
+          break;
+        }
+        case 'moon': {
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#ffeb88';
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+          ctx.fill();
+          break;
+        }
+        case 'stormCloud': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#22232c';
+          ctx.beginPath();
+          ctx.arc(x, 80, 60, 0, Math.PI*2);
+          ctx.arc(x+80, 70, 50, 0, Math.PI*2);
+          ctx.arc(x+40, 60, 40, 0, Math.PI*2);
+          ctx.fill();
+          break;
+        }
+        case 'caveWalls': {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#150018';
+          ctx.fillRect(0, 0, 40, H);
+          ctx.fillRect(W-40, 0, 40, H);
+          break;
+        }
+        case 'blackHole': {
+          const cx = d.x;
+          const cy = d.y;
+          const maxR = d.r;
+          for (let i=0;i<12;i++) {
+            const r = maxR * (i/12);
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = i%2? '#550077':'#000000';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI*2);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'brickWall': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#201010';
+          ctx.fillRect(x, 0, 80, H);
+          ctx.fillStyle = '#331717';
+          for (let yy=0; yy<H; yy+=14) {
+            for (let xx=x; xx<x+80; xx+=16) {
+              ctx.fillRect(xx+1, yy+1, 14, 8);
+            }
+          }
+          break;
+        }
+        case 'ruinTower': {
+          const x = d.x - state.levelScrollX*0.1;
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = '#151515';
+          const h = 120+Math.random()*80;
+          ctx.fillRect(x, floorY-h, 70, h);
+          ctx.clearRect(x+10, floorY-h+20, 20, 20);
+          ctx.clearRect(x+30, floorY-40, 25, 18);
+          break;
+        }
+        case 'glitchGrid': {
+          ctx.globalAlpha = 0.5;
+          ctx.strokeStyle = '#550000';
+          ctx.lineWidth = 1;
+          const scroll = state.levelScrollX*0.05;
+          for (let x=-(scroll%20); x<W; x+=20) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+            ctx.stroke();
+          }
+          for (let y=-(scroll%18); y<H; y+=18) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // === MID GROUND (30% speed) ===
+  if (decos.mid) {
+    for (const d of decos.mid) {
+      switch (d.type) {
+        case 'palmHill': {
+          const x = d.baseX - state.levelScrollX*0.3;
+          const hillTop = floorY - 40;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#220a00';
+          ctx.beginPath();
+          ctx.moveTo(x-40, floorY);
+          ctx.quadraticCurveTo(x, hillTop, x+40, floorY);
+          ctx.lineTo(x+40, H);
+          ctx.lineTo(x-40, H);
+          ctx.closePath();
+          ctx.fill();
+
+          const trunkX = x;
+          ctx.fillStyle = '#1a0800';
+          ctx.fillRect(trunkX-3, hillTop-30, 6, 30);
+          ctx.beginPath();
+          ctx.moveTo(trunkX-16, hillTop-30);
+          ctx.lineTo(trunkX+16, hillTop-30);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#120600';
+          ctx.stroke();
+          break;
+        }
+        case 'snow': {
+          ctx.fillStyle = '#ffffff';
+          for (const s of d.flakes) {
+            s.x += s.vx*0.016;
+            s.y += s.vy*0.016;
+            if (s.y > H) { s.y = -5; s.x = Math.random()*W; }
+            if (s.x < -10) s.x = W+10;
+            ctx.fillRect(Math.round(s.x), Math.round(s.y), s.r, s.r);
+          }
+          break;
+        }
+        case 'lavaSparks': {
+          if (d.particles.length < 80) {
+            d.particles.push({x:Math.random()*W, y:floorY-4, vy:-40-Math.random()*60, life:1+Math.random(), maxLife:2});
+          }
+          ctx.fillStyle = '#ffbb55';
+          for (const sp of d.particles) {
+            sp.y += sp.vy*0.016;
+            sp.life -= 0.02;
+            ctx.globalAlpha = Math.max(0, sp.life/sp.maxLife);
+            ctx.fillRect(sp.x, sp.y, 2, 4);
+          }
+          d.particles = d.particles.filter(sp => sp.life>0);
+          break;
+        }
+        case 'vine': {
+          const x = d.x - state.levelScrollX*0.3;
+          const sway = Math.sin(t + d.swayOffset)*6;
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = '#2b5f00';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.quadraticCurveTo(x+sway, H*0.25, x, H*0.4);
+          ctx.stroke();
+          break;
+        }
+        case 'bubbles': {
+          if (!d.particles.length) {
+            for (let i=0;i<60;i++) d.particles.push({x:Math.random()*W, y:floorY-10-Math.random()*160, r:2+Math.random()*4, vy:-20-Math.random()*20});
+          }
+          ctx.fillStyle = 'rgba(180,240,255,0.85)';
+          for (const b of d.particles) {
+            b.y += b.vy*0.016;
+            if (b.y < -20) { b.y = floorY-10; b.x = Math.random()*W; }
+            const x = b.x - state.levelScrollX*0.3;
+            ctx.beginPath();
+            ctx.arc(x, b.y, b.r, 0, Math.PI*2);
+            ctx.strokeStyle = 'rgba(180,240,255,0.9)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'coral': {
+          const x = d.x - state.levelScrollX*0.3;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#00324a';
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.lineTo(x+10, floorY-30);
+          ctx.lineTo(x+20, floorY);
+          ctx.lineTo(x+30, floorY-24);
+          ctx.lineTo(x+40, floorY);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'sandWind': {
+          if (!d.streaks.length) {
+            for (let i=0;i<40;i++) d.streaks.push({x:Math.random()*W, y:Math.random()*H*0.6+20, w:20+Math.random()*40, h:2, vx:-80-Math.random()*60});
+          }
+          ctx.fillStyle = 'rgba(232,210,150,0.7)';
+          for (const s of d.streaks) {
+            s.x += s.vx*0.016;
+            if (s.x + s.w < -40) { s.x = W+40; s.y = Math.random()*H*0.6+20; }
+            const x = s.x; // local sand wind independent of scroll
+            ctx.fillRect(x, s.y, s.w, s.h);
+          }
+          break;
+        }
+        case 'dataStream': {
+          if (!d.bands.length) {
+            for (let i=0;i<8;i++) d.bands.push({y:40+i*30, offset:Math.random()*200, speed:60+Math.random()*60});
+          }
+          ctx.strokeStyle = 'rgba(0,255,255,0.5)';
+          ctx.lineWidth = 2;
+          for (const b of d.bands) {
+            b.offset -= b.speed*0.016;
+            const base = (b.offset - state.levelScrollX*0.3) % 200;
+            for (let x=base; x<W+200; x+=200) {
+              ctx.beginPath();
+              ctx.moveTo(x, b.y);
+              ctx.lineTo(x+120, b.y);
+              ctx.stroke();
+            }
+          }
+          break;
+        }
+        case 'hauntTree': {
+          const x = d.x - state.levelScrollX*0.3;
+          ctx.strokeStyle = '#120008';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(x, floorY);
+          ctx.lineTo(x, floorY-80);
+          ctx.quadraticCurveTo(x-20, floorY-100, x-40, floorY-120);
+          ctx.moveTo(x, floorY-70);
+          ctx.quadraticCurveTo(x+20, floorY-90, x+40, floorY-110);
+          ctx.stroke();
+          break;
+        }
+        case 'wisps': {
+          if (!d.particles.length) {
+            for (let i=0;i<20;i++) d.particles.push({x:Math.random()*W, y:Math.random()*(floorY-60), vx:-10+Math.random()*20, vy:-5+Math.random()*10, life:1+Math.random(), maxLife:2});
+          }
+          for (const w of d.particles) {
+            w.x += w.vx*0.016;
+            w.y += w.vy*0.016;
+            w.life -= 0.01;
+            if (w.life <= 0) { w.x=Math.random()*W; w.y=Math.random()*(floorY-60); w.life=1+Math.random(); w.maxLife=2; }
+            const alpha = w.life/w.maxLife;
+            const x = w.x - state.levelScrollX*0.3;
+            ctx.globalAlpha = 0.4*alpha;
+            ctx.fillStyle = '#88ff88';
+            ctx.fillRect(x-4, w.y-4, 8, 8);
+          }
+          break;
+        }
+        case 'crystals': {
+          if (!d.clusters.length) {
+            for (let x=0;x<W+200;x+=140) d.clusters.push({x, speed:0.3});
+          }
+          for (const c of d.clusters) {
+            const x = c.x - state.levelScrollX*0.3;
+            ctx.globalAlpha = 0.9;
+            const colors = ['#ff66cc','#88e0ff','#c299ff'];
+            const idx = Math.floor((x/50)%colors.length+colors.length)%colors.length;
+            const col = colors[idx];
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.moveTo(x, floorY);
+            ctx.lineTo(x+10, floorY-40);
+            ctx.lineTo(x+20, floorY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x+30, 0);
+            ctx.lineTo(x+40, 40);
+            ctx.lineTo(x+50, 0);
+            ctx.closePath();
+            ctx.fill();
+          }
+          break;
+        }
+        case 'stretchedStars': {
+          if (!d.particles.length) {
+            for (let i=0;i<60;i++) d.particles.push({x:Math.random()*W, y:Math.random()*H, w:4+Math.random()*20});
+          }
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#ffffff';
+          for (const s of d.particles) {
+            const pull = (state.levelScrollX*0.2 + s.x) * 0.0005;
+            const dir = (W*0.7 - s.x);
+            s.x += dir * pull * 0.016;
+            ctx.fillRect(s.x, s.y, s.w, 1);
+          }
+          break;
+        }
+        case 'chains': {
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = 2;
+          for (let x=40;x<W; x+=120) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 80);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'embers': {
+          if (!d.particles.length) {
+            for (let i=0;i<60;i++) d.particles.push({x:Math.random()*W, y:floorY-10, vx:-20+Math.random()*40, vy:-40-Math.random()*40, life:1+Math.random(), maxLife:2});
+          }
+          for (const e of d.particles) {
+            e.x += e.vx*0.016;
+            e.y += e.vy*0.016;
+            e.life -= 0.02;
+            if (e.life<=0 || e.y<-20) { e.x=Math.random()*W; e.y=floorY-10; e.life=1+Math.random(); e.maxLife=2; }
+            const alpha = e.life/e.maxLife;
+            ctx.globalAlpha = 0.6*alpha;
+            ctx.fillStyle = '#ff6622';
+            ctx.fillRect(e.x, e.y, 3, 3);
+          }
+          break;
+        }
+        case 'toxicHaze': {
+          if (!d.particles.length) {
+            for (let i=0;i<50;i++) d.particles.push({x:Math.random()*W, y:floorY-10-Math.random()*40, vy:-5-Math.random()*15, life:1+Math.random(), maxLife:2});
+          }
+          for (const h of d.particles) {
+            h.y += h.vy*0.016;
+            h.life -= 0.01;
+            if (h.life<=0 || h.y<0) { h.x=Math.random()*W; h.y=floorY-10-Math.random()*40; h.life=1+Math.random(); h.maxLife=2; }
+            const alpha = h.life/h.maxLife;
+            const x = h.x - state.levelScrollX*0.3;
+            ctx.globalAlpha = 0.35*alpha;
+            ctx.fillStyle = '#7aff5a';
+            ctx.fillRect(x-10, h.y-10, 20, 20);
+          }
+          break;
+        }
+        case 'voidPulse': {
+          const phase = (t - d.t0) * 0.2;
+          const k = (Math.sin(phase) + 1) / 2;
+          const grad = ctx.createLinearGradient(0,0,0,H);
+          grad.addColorStop(0, `rgba(30,0,0,${0.4*k})`);
+          grad.addColorStop(1, `rgba(80,0,0,${0.8*k})`);
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = grad;
+          ctx.fillRect(0,0,W,H);
+          break;
+        }
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawBackground() {
+  const lvl = state.level;
+  if (!lvl) { ctx.fillStyle='#0a0a1a'; ctx.fillRect(0,0,W,H); return; }
+  const [c1,c2] = lvl.bgColors;
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, c1); grad.addColorStop(0.6, c2); grad.addColorStop(1, lvl.floorColor);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // Draw pixel stars
+  for (const s of state.stars) {
+    ctx.globalAlpha = s.brightness * (0.5 + 0.5*Math.sin(Date.now()*0.001 + s.x));
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(s.x), Math.round(s.y), Math.ceil(s.r)*2, Math.ceil(s.r)*2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloor() {
+  const lvl = state.level;
+  const floorY = FLOOR_Y();
+  // Main floor
+  drawPixelRect(0, floorY, W, H-floorY, lvl ? lvl.floorColor : '#111');
+  // Floor highlight line
+  ctx.fillStyle = lvl ? lvl.accentColor+'44' : '#ffffff22';
+  ctx.fillRect(0, floorY, W, 2);
+  // Floor pixel details (scrolling tiles)
+  ctx.fillStyle = lvl ? lvl.accentColor+'22' : '#ffffff11';
+  const tileW = 32, offsetX = -(state.levelScrollX % tileW);
+  for (let x = offsetX; x < W; x += tileW) {
+    ctx.fillRect(Math.round(x), floorY, 1, 8);
+  }
+}
+
+function drawPlayer() {
+  if (state.mode === 'dead') return;
+  const p = state.player;
+  const lvl = state.level;
+  ctx.save();
+  ctx.translate(Math.round(p.x + p.size/2), Math.round(p.y + p.size/2));
+  ctx.rotate(p.rotation);
+  // Outer glow
+  ctx.shadowColor = lvl.playerColor;
+  ctx.shadowBlur = 12;
+  // Body
+  ctx.fillStyle = lvl.playerColor;
+  const hs = p.size/2;
+  ctx.fillRect(-hs, -hs, p.size, p.size);
+  // Inner detail
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(-hs+4, -hs+4, p.size-8, p.size-8);
+  // Eye
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-hs+6, -hs+6, 5, 5);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(-hs+7, -hs+7, 3, 3);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawObstacles() {
+  const lvl = state.level;
+  for (const obs of state.obstacles) {
+    const ox = obs.screenX;
+    if (ox + obs.w < -10 || ox > W + 10) continue;
+    ctx.save();
+    ctx.shadowColor = obs.color;
+    ctx.shadowBlur = 8;
+    if (obs.type === 'block') {
+      ctx.fillStyle = obs.color;
+      ctx.fillRect(Math.round(ox), Math.round(obs.y), obs.w, obs.h);
+      // Pixel inner detail
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fillRect(Math.round(ox+2), Math.round(obs.y+2), 4, 4);
+    } else {
+      // Spike triangle
+      ctx.fillStyle = obs.color;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(ox + obs.w/2), Math.round(obs.y));
+      ctx.lineTo(Math.round(ox), Math.round(obs.y + obs.h));
+      ctx.lineTo(Math.round(ox + obs.w), Math.round(obs.y + obs.h));
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+}
+
+function drawParticles() {
+  for (const p of state.particles) {
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    const s = p.size * alpha;
+    ctx.fillRect(Math.round(p.x - s/2), Math.round(p.y - s/2), Math.max(1,Math.round(s)), Math.max(1,Math.round(s)));
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFinishLine() {
+  if (!state.level) return;
+  const finishScreenX = state.levelLength - state.levelScrollX;
+  if (finishScreenX < -20 || finishScreenX > W + 20) return;
+  const floorY = FLOOR_Y();
+  ctx.fillStyle = '#ffd700';
+  ctx.shadowColor = '#ffd700';
+  ctx.shadowBlur = 16;
+  ctx.fillRect(Math.round(finishScreenX), 40, 4, floorY-40);
+  ctx.shadowBlur = 0;
+  // Flag
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.moveTo(Math.round(finishScreenX)+4, 40);
+  ctx.lineTo(Math.round(finishScreenX)+24, 52);
+  ctx.lineTo(Math.round(finishScreenX)+4, 64);
+  ctx.closePath();
+  ctx.fill();
+  // Text
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText('FINISH', Math.round(finishScreenX)-12, 34);
+}
+
+function render() {
+  ctx.clearRect(0,0,W,H);
+  if (state.mode === 'playing' || state.mode === 'dead' || state.mode === 'win') {
+    drawBackground();
+    drawLevelDecorations();
+    drawFinishLine();
+    drawFloor();
+    drawObstacles();
+    drawPlayer();
+    drawParticles();
+  } else {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+// ============================================================
+// DEBUG
+// ============================================================
+const dbg = document.getElementById('debug');
+function updateDebug(ts) {
+  _frames++;
+  _ft = ts - (_prev||ts); _prev = ts;
+  if (ts - _fpsLast >= 1000) {
+    _fps = (_frames*1000)/(ts-_fpsLast)|0;
+    _frames=0; _fpsLast=ts;
+    dbg.textContent = `FPS:${_fps} ${_ft.toFixed(1)}ms | Mode:${state.mode}`;
+    if (_fps < 30) dbg.style.color = '#f44'; else dbg.style.color = '#0f0';
+  }
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function gameLoop(ts) {
+  requestAnimationFrame(gameLoop);
+  const dt = Math.min((ts - lastTs)/1000, 0.05);
+  lastTs = ts;
+  if (state.mode === 'playing') {
+    accum += dt;
+    while (accum >= TICK) { update(TICK); accum -= TICK; }
+  }
+  render();
+  updateDebug(ts);
+}
+
+// ============================================================
+// LEVEL SELECT UI
+// ============================================================
+function getDiffColor(diff) {
+  if (diff <= 1.0) return '#00ff88';
+  if (diff <= 1.5) return '#44ff44';
+  if (diff <= 2.0) return '#aaff00';
+  if (diff <= 2.5) return '#ffff00';
+  if (diff <= 3.0) return '#ffcc00';
+  if (diff <= 3.5) return '#ff8800';
+  if (diff <= 4.0) return '#ff4400';
+  if (diff <= 4.5) return '#ff2200';
+  return '#ff0000';
+}
+
+function getDiffLabel(diff) {
+  if (diff <= 1.0) return 'EASY';
+  if (diff <= 1.5) return 'EASY+';
+  if (diff <= 2.0) return 'MEDIUM';
+  if (diff <= 2.5) return 'MEDIUM+';
+  if (diff <= 3.0) return 'HARD';
+  if (diff <= 3.5) return 'HARD+';
+  if (diff <= 4.0) return 'VERY HARD';
+  if (diff <= 4.5) return 'EXTREME';
+  return 'IMPOSSIBLE';
+}
+
+function renderBalls(diff, color) {
+  const totalBalls = 5;
+  const filled = Math.round(diff * 2) / 2;
+  let html = '<div class="diff-balls">';
+  for (let i = 0; i < totalBalls; i++) {
+    const v = i + 1;
+    const isFull = filled >= v;
+    const isHalf = !isFull && filled >= v - 0.5;
+    html += `<div class="ball ${isFull ? 'filled' : ''}" style="color:${color};${isHalf ? 'background:linear-gradient(90deg,'+color+' 50%,transparent 50%)' : ''}"></div>`;
+  }
+  html += `<span style="font-family:var(--font-display);font-size:0.45rem;color:${color};margin-left:6px;">${getDiffLabel(diff)}</span>`;
+  html += '</div>';
+  return html;
+}
+
+function buildLevelSelect() {
+  const grid = document.getElementById('levelsGrid');
+  grid.innerHTML = '';
+  LEVELS.forEach(lvl => {
+    const color = getDiffColor(lvl.diff);
+    const card = document.createElement('div');
+    card.className = 'level-card';
+    card.style.borderColor = color+'44';
+    card.innerHTML = `
+      <div class="level-num">LVL ${String(lvl.id).padStart(2,'0')}</div>
+      <div class="level-name">${lvl.emoji} ${lvl.name}</div>
+      <div class="level-theme-desc">${lvl.desc}</div>
+      ${renderBalls(lvl.diff, color)}
+    `;
+    card.addEventListener('click', () => {
+      ensureAudio();
+      state.attempts = 1;
+      startLevel(lvl.id);
+    });
+    // Gradient card background from level colors
+    card.style.background = `linear-gradient(135deg, ${lvl.bgColors[0]}88 0%, ${lvl.floorColor}44 100%)`;
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+function showScreen(id) {
+  hideAllScreens();
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('hidden');
+  if (id === 'levelSelect') buildLevelSelect();
+}
+function hideAllScreens() {
+  ['titleScreen','howToPlay','levelSelect','pauseOverlay','deathOverlay','winOverlay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+}
+
+// ============================================================
+// RESIZE
+// ============================================================
+window.addEventListener('resize', () => {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+});
+
+// ============================================================
+// TEST HOOKS
+// ============================================================
+window.render_game_to_text = () => {
+  return JSON.stringify({
+    mode: state.mode,
+    level: state.level ? state.level.id : null,
+    progress: +(state.progress*100).toFixed(1),
+    attempts: state.attempts,
+    player: { x: +(state.player.x).toFixed(1), y: +(state.player.y).toFixed(1), vy: +(state.player.vy).toFixed(1), grounded: state.player.grounded },
+    obstacles_visible: state.obstacles ? state.obstacles.filter(o => o.screenX > -50 && o.screenX < W+50).length : 0
+  });
+};
+window.advanceTime = (ms) => {
+  const steps = Math.max(1, Math.round(ms/16.67));
+  for (let i=0;i<steps;i++) update(TICK);
+};
+
+// ============================================================
+// INIT
+// ============================================================
+buildLevelSelect();
+showScreen('titleScreen');
+requestAnimationFrame(ts => { lastTs = ts; gameLoop(ts); });
+</script>
+</body>
+</html>
